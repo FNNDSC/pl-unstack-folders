@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-
+import shutil
+import sys
 from pathlib import Path
 from argparse import ArgumentParser, Namespace, ArgumentDefaultsHelpFormatter
 
-from chris_plugin import chris_plugin, PathMapper
+from chris_plugin import chris_plugin
 
 __version__ = '1.0.0'
 
@@ -19,22 +20,10 @@ DISPLAY_TITLE = r"""
 """
 
 
-parser = ArgumentParser(description='!!!CHANGE ME!!! An example ChRIS plugin which '
-                                    'counts the number of occurrences of a given '
-                                    'word in text files.',
+parser = ArgumentParser(description='Copy deeply nested paths to the top-level.',
                         formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument('-w', '--word', required=True, type=str,
-                    help='word to count')
-parser.add_argument('-p', '--pattern', default='**/*.txt', type=str,
-                    help='input file filter glob')
-parser.add_argument('-V', '--version', action='version',
-                    version=f'%(prog)s {__version__}')
 
 
-# The main function of this *ChRIS* plugin is denoted by this ``@chris_plugin`` "decorator."
-# Some metadata about the plugin is specified here. There is more metadata specified in setup.py.
-#
-# documentation: https://fnndsc.github.io/chris_plugin/chris_plugin.html#chris_plugin
 @chris_plugin(
     parser=parser,
     title='Unstack Folders',
@@ -43,34 +32,38 @@ parser.add_argument('-V', '--version', action='version',
     min_cpu_limit='1000m',       # millicores, e.g. "1000m" = 1 CPU core
     min_gpu_limit=0              # set min_gpu_limit=1 to enable GPU
 )
-def main(options: Namespace, inputdir: Path, outputdir: Path):
-    """
-    *ChRIS* plugins usually have two positional arguments: an **input directory** containing
-    input files and an **output directory** where to write output files. Command-line arguments
-    are passed to this main method implicitly when ``main()`` is called below without parameters.
+def main(_options: Namespace, inputdir: Path, outputdir: Path):
+    print(DISPLAY_TITLE, file=sys.stderr, flush=True)
+    nested = find_nested(inputdir)
 
-    :param options: non-positional arguments parsed by the parser given to @chris_plugin
-    :param inputdir: directory containing (read-only) input files
-    :param outputdir: directory where to write output files
-    """
+    if nested.is_dir():
+        target = outputdir
+        copy_func = lambda a, b: shutil.copytree(a, b, dirs_exist_ok=True)
+    else:
+        target = outputdir / nested.name
+        copy_func = shutil.copy2
 
-    print(DISPLAY_TITLE)
+    print(f'{nested} -> {target}', flush=True)
+    copy_func(nested, target)
 
-    # Typically it's easier to think of programs as operating on individual files
-    # rather than directories. The helper functions provided by a ``PathMapper``
-    # object make it easy to discover input files and write to output files inside
-    # the given paths.
-    #
-    # Refer to the documentation for more options, examples, and advanced uses e.g.
-    # adding a progress bar and parallelism.
-    mapper = PathMapper.file_mapper(inputdir, outputdir, glob=options.pattern, suffix='.count.txt')
-    for input_file, output_file in mapper:
-        # The code block below is a small and easy example of how to use a ``PathMapper``.
-        # It is recommended that you put your functionality in a helper function, so that
-        # it is more legible and can be unit tested.
-        data = input_file.read_text()
-        frequency = data.count(options.word)
-        output_file.write_text(str(frequency))
+
+def find_nested(p: Path) -> Path:
+    if not p.is_dir():
+        return p
+    if contains_multiple_subpaths_or_is_empty(p):
+        return p
+    return find_nested(subpath_in(p))
+
+
+def contains_multiple_subpaths_or_is_empty(p: Path) -> bool:
+    i = iter(p.glob('*'))
+    if next(i, None) is None:
+        return True
+    return next(i, None) is not None
+
+
+def subpath_in(p: Path) -> Path:
+    return next(iter(p.glob('*')))
 
 
 if __name__ == '__main__':

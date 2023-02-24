@@ -1,21 +1,44 @@
+import pytest
 from pathlib import Path
-
 from unstack import parser, main
 
 
-def test_main(tmp_path: Path):
-    # setup example data
+def test_copy_file(dirs, empty_args):
+    inputdir, outputdir = dirs
+    nested_file = inputdir / 'a' / 'b' / 'c.dat'
+    nested_file.parent.mkdir(parents=True)
+    nested_file.write_text('fish are friends not food')
+    main(empty_args, inputdir, outputdir)
+    expected = outputdir / 'c.dat'
+    assert expected.is_file()
+    assert expected.read_text() == 'fish are friends not food'
+
+
+def test_copy_multiple_dirs(dirs, empty_args):
+    inputdir, outputdir = dirs
+    file1 = inputdir / 'animals' / 'fish' / 'pufferfish.dat'
+    file2 = inputdir / 'animals' / 'mammal' / 'dolphin.dat'
+
+    for f in (file1, file2):
+        f.parent.mkdir(parents=True)
+        f.write_text('is an animal')
+
+    main(empty_args, inputdir, outputdir)
+    assert (outputdir / 'fish').is_dir()
+    assert (outputdir / 'fish' / 'pufferfish.dat').is_file()
+    assert (outputdir / 'mammal').is_dir()
+    assert (outputdir / 'mammal' / 'dolphin.dat').is_file()
+
+
+@pytest.fixture
+def dirs(tmp_path: Path):
     inputdir = tmp_path / 'incoming'
     outputdir = tmp_path / 'outgoing'
     inputdir.mkdir()
     outputdir.mkdir()
-    (inputdir / 'plaintext.txt').write_text('hello ChRIS, I am a ChRIS plugin')
+    return inputdir, outputdir
 
-    # simulate run of main function
-    options = parser.parse_args(['--word', 'ChRIS', '--pattern', '*.txt'])
-    main(options, inputdir, outputdir)
 
-    # assert behavior is expected
-    expected_output_file = outputdir / 'plaintext.count.txt'
-    assert expected_output_file.exists()
-    assert expected_output_file.read_text() == '2'
+@pytest.fixture
+def empty_args():
+    return parser.parse_args([])
