@@ -19,6 +19,8 @@ DISPLAY_TITLE = r"""
 |_|                                                                                      
 """
 
+SPECIAL_FILES = frozenset({'input.meta.json', 'output.meta.json'})
+
 
 parser = ArgumentParser(description='Copy deeply nested paths to the top-level.',
                         formatter_class=ArgumentDefaultsHelpFormatter)
@@ -65,11 +67,13 @@ def contains_multiple_subpaths_or_is_empty(p: Path, is_first: bool) -> bool:
 
 
 def is_not_special_file(p: Path) -> bool:
-    return p.name not in ('input.meta.json', 'output.meta.json')
+    return p.name not in SPECIAL_FILES
 
 
 def subpath_in(p: Path) -> Path:
-    return next(iter(p.glob('*')))
+    subpaths = p.glob('*')
+    f = filter(is_not_special_file, subpaths)
+    return next(f)
 
 
 if __name__ == '__main__':
