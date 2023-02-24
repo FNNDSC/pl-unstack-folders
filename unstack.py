@@ -47,19 +47,25 @@ def main(_options: Namespace, inputdir: Path, outputdir: Path):
     copy_func(nested, target)
 
 
-def find_nested(p: Path) -> Path:
+def find_nested(p: Path, is_first=True) -> Path:
     if not p.is_dir():
         return p
-    if contains_multiple_subpaths_or_is_empty(p):
+    if contains_multiple_subpaths_or_is_empty(p, is_first):
         return p
-    return find_nested(subpath_in(p))
+    return find_nested(subpath_in(p), False)
 
 
-def contains_multiple_subpaths_or_is_empty(p: Path) -> bool:
+def contains_multiple_subpaths_or_is_empty(p: Path, is_first: bool) -> bool:
     i = iter(p.glob('*'))
+    if is_first:
+        i = filter(is_not_special_file, i)
     if next(i, None) is None:
         return True
     return next(i, None) is not None
+
+
+def is_not_special_file(p: Path) -> bool:
+    return p.name not in ('input.meta.json', 'output.meta.json')
 
 
 def subpath_in(p: Path) -> Path:

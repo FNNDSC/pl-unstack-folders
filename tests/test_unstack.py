@@ -16,6 +16,17 @@ def test_copy_file(dirs, empty_args):
 
 def test_copy_multiple_dirs(dirs, empty_args):
     inputdir, outputdir = dirs
+    multiple_dirs_helper(inputdir, outputdir, empty_args)
+
+
+def test_ignores_special_files(dirs, empty_args):
+    inputdir, outputdir = dirs
+    (inputdir / 'input.meta.json').write_text('{}')
+    (inputdir / 'output.meta.json').write_text('{}')
+    multiple_dirs_helper(inputdir, outputdir, empty_args)
+
+
+def multiple_dirs_helper(inputdir: Path, outputdir: Path, empty_args):
     file1 = inputdir / 'animals' / 'fish' / 'pufferfish.dat'
     file2 = inputdir / 'animals' / 'mammal' / 'dolphin.dat'
 
